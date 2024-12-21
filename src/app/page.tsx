@@ -1,27 +1,26 @@
-import { DataPanel } from "@/components/DataPanel";
-import { Query } from "@/components/Query";
-import { DndProvider } from "@/components/DndProvider";
-import { ChartProvider } from "@/hooks/useChartState";
-import { ChartDisplay } from "@/components/ChartDisplay";
+"use client";
+import { DataPanel } from "@/components/panels/DataPanel";
+import { DndProvider } from "@/components/context/DndProvider";
+import { ChartDisplay } from "@/components/visuals/ChartDisplay";
+import { FilterPanel } from "@/components/panels/FilterPanel";
+import { RowDropzone } from "@/components/dropzone/RowDropzone";
+import { ColumnDropzone } from "@/components/dropzone/ColumnDropzone";
 
 export default function Home() {
 	return (
 		<DndProvider>
-			<ChartProvider>
-				<div className="flex flex-col w-full h-[100svh] max-h-[100svh]">
-					<div className="flex w-full h-full">
-						<div className="h-full border-r border-neutral-lightest">
-							<DataPanel />
-						</div>
-						<div className="flex flex-col w-full h-full">
-							<Query />
-							<div className="flex-grow flex items-center justify-center p-4">
-								<ChartDisplay />
-							</div>
-						</div>
+			<div className="flex flex-col w-full h-[100svh] max-h-[100svh]">
+				<header className="h-16 bg-primary-darkest border-b border-neutral-light px-4 py-2 flex"></header>
+				<div className="flex w-full h-full">
+					<DataPanel />
+					<FilterPanel />
+					<div className="flex flex-col w-full h-full">
+						<RowDropzone />
+						<ColumnDropzone />
+						<ChartDisplay />
 					</div>
 				</div>
-			</ChartProvider>
+			</div>
 		</DndProvider>
 	);
 }

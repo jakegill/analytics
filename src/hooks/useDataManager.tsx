@@ -9,6 +9,7 @@ import { DUCKDB_BUNDLES } from "@/config/duckdb.config";
 interface DuckDBManagerContext {
 	db: AsyncDuckDB | null;
 	columns: Field[];
+	fileName: string;
 	isLoading: boolean;
 	query: (config: Query) => Promise<any>;
 	ingest: (file: File) => Promise<void>;
@@ -16,6 +17,7 @@ interface DuckDBManagerContext {
 
 export const DuckDBManagerContext = createContext<DuckDBManagerContext>({
 	db: null,
+	fileName: "",
 	columns: [],
 	isLoading: false,
 	query: async () => {},
@@ -28,6 +30,7 @@ export const DuckDBManagerProvider: React.FC<{ children: ReactNode }> = ({ child
 	const [isLoading, setIsLoading] = useState<boolean>(false);
 	const [db, setDB] = useState<AsyncDuckDB | null>(null);
 	const [columns, setColumns] = useState<Field[]>([]);
+	const [fileName, setFileName] = useState<string>("");
 
 	useEffect(() => {
 		init();
@@ -51,6 +54,8 @@ export const DuckDBManagerProvider: React.FC<{ children: ReactNode }> = ({ child
 		if (!db) return;
 		try {
 			setIsLoading(true);
+			setFileName(file.name);
+
 			const conn = await db.connect();
 
 			const fileBuffer = await file.arrayBuffer();
@@ -59,7 +64,7 @@ export const DuckDBManagerProvider: React.FC<{ children: ReactNode }> = ({ child
 			await conn.query(`
 				CREATE TABLE IF NOT EXISTS dataset AS 
 				SELECT * FROM read_csv_auto('${file.name}')
-			`);
+				`);
 
 			await conn.close();
 			await analyze();
@@ -125,7 +130,7 @@ export const DuckDBManagerProvider: React.FC<{ children: ReactNode }> = ({ child
 
 			console.log("QUERY: ", query);
 			const result = await conn.query(query);
-			console.log(result);
+
 			await conn.close();
 			return result.toArray();
 		} catch (err) {
@@ -138,6 +143,7 @@ export const DuckDBManagerProvider: React.FC<{ children: ReactNode }> = ({ child
 		<DuckDBManagerContext.Provider
 			value={{
 				db,
+				fileName,
 				isLoading,
 				ingest,
 				columns,

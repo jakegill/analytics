@@ -10,7 +10,8 @@ interface DndState {
 export const DND_IDS = {
 	ROWS: "rows-dropzone",
 	COLUMNS: "columns-dropzone",
-	FIELDS_LIST: "fields-list",
+	DIMENSIONS: "dimensions-list",
+	MEASURES: "measures-list",
 } as const;
 
 export function useDnd() {
