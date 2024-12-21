@@ -1,0 +1,4 @@
+Pages
+
+- Page for data view
+- Page for visualization builder

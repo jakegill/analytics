@@ -7,7 +7,7 @@ type DataClassification =
 type Transformations = {
 	ordinal: "COUNT" | "MODE";
 	nominal: "COUNT" | "MODE";
-	quantitative: "SUM" | "AVERAGE" | "MEDIAN" | "MIN" | "MAX" | "COUNT" | "DISTINCT";
+	quantitative: "SUM" | "AVG" | "MEDIAN" | "MIN" | "MAX" | "COUNT" | "COUNT_DISTINCT";
 	temporal: "MIN" | "MAX" | "COUNT";
 };
 

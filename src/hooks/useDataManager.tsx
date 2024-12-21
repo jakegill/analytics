@@ -122,8 +122,10 @@ export const DuckDBManagerProvider: React.FC<{ children: ReactNode }> = ({ child
 			FROM dataset
 			${groupBy.length ? `GROUP BY ${groupBy.join(", ")}` : ""}
 		  `;
+
 			console.log("QUERY: ", query);
 			const result = await conn.query(query);
+			console.log(result);
 			await conn.close();
 			return result.toArray();
 		} catch (err) {
