@@ -1,107 +1,106 @@
-import { useState } from "react";
-import type { Field } from "@/types/field";
-import type { DropResult } from "@hello-pangea/dnd";
+"use client";
+import type { DimensionTransformation, IField, IMeasureField, MeasureTransformation } from "@/types/field.d";
+import { ReactNode, useContext, useState, useCallback } from "react";
+import { DragDropContext, DropResult } from "@hello-pangea/dnd";
+import { createContext } from "react";
+import { isMeasureField } from "@/utils/typeGuards";
 
-interface DndState {
-	rows: Field[];
-	columns: Field[];
+interface DndContext {
+	rows: IField[];
+	columns: IField[];
+	onDragEnd: (result: DropResult) => void;
+	updateFieldTransformation: (field: IField, transformation: MeasureTransformation | DimensionTransformation) => void;
 }
 
-export const DND_IDS = {
-	ROWS: "rows-dropzone",
-	COLUMNS: "columns-dropzone",
-	DIMENSIONS: "dimensions-list",
-	MEASURES: "measures-list",
-} as const;
+const DndContext = createContext<DndContext | null>(null);
 
-export function useDnd() {
-	const [state, setState] = useState<DndState>({
-		rows: [],
-		columns: [],
-	});
+export const useDnd = () => {
+	const context = useContext(DndContext);
+	if (!context) throw new Error("useDnd must be used within DndContextProvider");
+	return context;
+};
 
-	const handleDragEnd = (result: DropResult) => {
-		const { destination, source, draggableId } = result;
+export const DndContextProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+	const [rows, setRows] = useState<IField[]>([]);
+	const [columns, setColumns] = useState<IField[]>([]);
 
-		if (!destination) return;
+	const updateFieldTransformation = useCallback(
+		(field: IField, transformation: MeasureTransformation | DimensionTransformation) => {
+			const updateFields = (fields: IField[]): IField[] =>
+				fields.map((f) => {
+					if (f.name !== field.name) return f;
+					return isMeasureField(f)
+						? { ...f, transformation: transformation as MeasureTransformation }
+						: { ...f, transformation: transformation as DimensionTransformation };
+				});
 
-		try {
-			const draggedField = JSON.parse(draggableId) as Field;
+			setRows(updateFields);
+			setColumns(updateFields);
+		},
+		[]
+	);
 
-			// If coming from fields list, add to destination
-			if (source.droppableId === DND_IDS.FIELDS_LIST) {
-				if (destination.droppableId === DND_IDS.ROWS) {
-					setState((prev) => ({
-						...prev,
-						rows: [...prev.rows, draggedField],
-					}));
-				} else if (destination.droppableId === DND_IDS.COLUMNS) {
-					setState((prev) => ({
-						...prev,
-						columns: [...prev.columns, draggedField],
-					}));
-				}
-				return;
+	const DROPZONES = {
+		ROW_DROPZONE: "ROW_DROPZONE",
+		COLUMN_DROPZONE: "COLUMN_DROPZONE",
+		DIMENSIONS: "DIMENSIONS",
+		MEASURES: "MEASURES",
+	};
+
+	const onDragEnd = (result: DropResult) => {
+		const { source, destination } = result;
+
+		if (!destination) {
+			if (source.droppableId === DROPZONES.ROW_DROPZONE) {
+				setRows((prev) => prev.filter((_, index) => index !== source.index));
+			}
+			if (source.droppableId === DROPZONES.COLUMN_DROPZONE) {
+				setColumns((prev) => prev.filter((_, index) => index !== source.index));
+			}
+			return;
+		}
+
+		const field = JSON.parse(result.draggableId) as IField;
+		const fieldWithId = {
+			...field,
+			id: field.id || `${field.name}-${Math.random().toString(36).substr(2, 9)}`,
+		};
+
+		if (source.droppableId !== destination.droppableId) {
+			if (source.droppableId === DROPZONES.ROW_DROPZONE) {
+				setRows((prev) => prev.filter((_, index) => index !== source.index));
+			}
+			if (source.droppableId === DROPZONES.COLUMN_DROPZONE) {
+				setColumns((prev) => prev.filter((_, index) => index !== source.index));
 			}
 
-			// Handle reordering within the same dropzone
-			if (source.droppableId === destination.droppableId) {
-				const zone = source.droppableId === DND_IDS.ROWS ? "rows" : "columns";
-				const items = Array.from(state[zone]);
-				const [reorderedItem] = items.splice(source.index, 1);
-				items.splice(destination.index, 0, reorderedItem);
-
-				setState((prev) => ({
-					...prev,
-					[zone]: items,
-				}));
-				return;
+			if (destination.droppableId === DROPZONES.ROW_DROPZONE) {
+				setRows((prev) => [...prev, fieldWithId]);
 			}
+			if (destination.droppableId === DROPZONES.COLUMN_DROPZONE) {
+				setColumns((prev) => [...prev, fieldWithId]);
+			}
+			return;
+		}
 
-			// Handle moving between rows and columns
-			const sourceZone = source.droppableId === DND_IDS.ROWS ? "rows" : "columns";
-			const destZone = destination.droppableId === DND_IDS.ROWS ? "rows" : "columns";
+		if (
+			destination.droppableId === DROPZONES.ROW_DROPZONE &&
+			(source.droppableId === DROPZONES.DIMENSIONS || source.droppableId === DROPZONES.MEASURES)
+		) {
+			setRows((prev) => [...prev, fieldWithId]);
+		}
 
-			setState((prev) => {
-				const sourceItems = Array.from(prev[sourceZone]);
-				const destItems = Array.from(prev[destZone]);
-
-				// Remove from source
-				sourceItems.splice(source.index, 1);
-
-				// Add to destination
-				destItems.splice(destination.index, 0, draggedField);
-
-				return {
-					...prev,
-					[sourceZone]: sourceItems,
-					[destZone]: destItems,
-				};
-			});
-		} catch (err) {
-			console.error("Failed to parse dragged item:", err);
+		if (
+			destination.droppableId === DROPZONES.COLUMN_DROPZONE &&
+			(source.droppableId === DROPZONES.DIMENSIONS || source.droppableId === DROPZONES.MEASURES)
+		) {
+			setColumns((prev) => [...prev, fieldWithId]);
 		}
 	};
 
-	const removeField = (fieldName: string, zone: "rows" | "columns") => {
-		setState((prev) => ({
-			...prev,
-			[zone]: prev[zone].filter((f) => f.name !== fieldName),
-		}));
-	};
-
-	const updateField = (fieldName: string, zone: "rows" | "columns", updates: Partial<Field>) => {
-		setState((prev) => ({
-			...prev,
-			[zone]: prev[zone].map((field) => (field.name === fieldName ? { ...field, ...updates } : field)),
-		}));
-	};
-
-	return {
-		rows: state.rows,
-		columns: state.columns,
-		handleDragEnd,
-		removeField,
-		updateField,
-	};
-}
+	return (
+		<DndContext.Provider value={{ rows, columns, onDragEnd, updateFieldTransformation }}>
+			<DragDropContext onDragEnd={onDragEnd}>{children}</DragDropContext>
+		</DndContext.Provider>
+	);
+};

@@ -1,5 +1,5 @@
 "use client";
-import type { Field, Query } from "@/types/field";
+import type { DuckDBFieldType, IField, IQuery, MeasureTransformation, DimensionTransformation } from "@/types/field";
 import type { AsyncDuckDB } from "@duckdb/duckdb-wasm";
 import { ReactNode, useContext, useEffect, useState } from "react";
 import { createContext } from "react";
@@ -8,10 +8,10 @@ import { DUCKDB_BUNDLES } from "@/config/duckdb.config";
 
 interface DuckDBManagerContext {
 	db: AsyncDuckDB | null;
-	columns: Field[];
+	columns: IField[];
 	fileName: string;
 	isLoading: boolean;
-	query: (config: Query) => Promise<any>;
+	query: (config: IQuery) => Promise<any>;
 	ingest: (file: File) => Promise<void>;
 }
 
@@ -29,7 +29,7 @@ export const useDataManager = () => useContext(DuckDBManagerContext);
 export const DuckDBManagerProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
 	const [isLoading, setIsLoading] = useState<boolean>(false);
 	const [db, setDB] = useState<AsyncDuckDB | null>(null);
-	const [columns, setColumns] = useState<Field[]>([]);
+	const [columns, setColumns] = useState<IField[]>([]);
 	const [fileName, setFileName] = useState<string>("");
 
 	useEffect(() => {
@@ -91,10 +91,10 @@ export const DuckDBManagerProvider: React.FC<{ children: ReactNode }> = ({ child
 
 			const info = await conn.query(columnQuery);
 
-			const columns: Field[] = info.toArray().map((col) => {
+			const columns: IField[] = info.toArray().map((col) => {
 				return {
 					name: col.name as string,
-					type: col.type.toLowerCase() as string,
+					type: col.type.toLowerCase() as DuckDBFieldType,
 				};
 			});
 
@@ -106,7 +106,7 @@ export const DuckDBManagerProvider: React.FC<{ children: ReactNode }> = ({ child
 	}
 
 	//
-	async function query(config: Query): Promise<any[]> {
+	async function query(config: IQuery): Promise<any[]> {
 		if (!db) return [];
 		try {
 			const conn = await db.connect();
@@ -130,9 +130,16 @@ export const DuckDBManagerProvider: React.FC<{ children: ReactNode }> = ({ child
 
 			console.log("QUERY: ", query);
 			const result = await conn.query(query);
+			const data = result.toArray().map((row) => {
+				const newRow: Record<string, any> = {};
+				Object.entries(row).forEach(([key, value]) => {
+					newRow[key] = typeof value === "bigint" ? Number(value) : value;
+				});
+				return newRow;
+			});
 
 			await conn.close();
-			return result.toArray();
+			return data;
 		} catch (err) {
 			console.error("Query error:", err);
 			return [];
